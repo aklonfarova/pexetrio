@@ -11,6 +11,44 @@ const io = new Server(server, {
 
 app.use(express.static(path.join(__dirname, 'public')));
 
+// ─── Map image proxy (Mapy.cz aerial screenshot, cached) ─────────────────────
+const mapCache = new Map();
+
+app.get('/api/map', async (req, res) => {
+  const { lat, lon, z = 18 } = req.query;
+  if (!lat || !lon) return res.status(400).send('Missing lat/lon');
+
+  const cacheKey = `${lat},${lon},${z}`;
+  if (mapCache.has(cacheKey)) {
+    const { buf, ct } = mapCache.get(cacheKey);
+    res.set('Content-Type', ct);
+    res.set('Cache-Control', 'public, max-age=86400');
+    return res.send(buf);
+  }
+
+  try {
+    const url = `https://en.mapy.cz/screenshot?x=${lon}&y=${lat}&z=${z}&width=300&height=220&maptype=ophoto`;
+    const response = await fetch(url, {
+      headers: { 'User-Agent': 'Mozilla/5.0 (compatible; pexetrio/1.0)' },
+    });
+    if (!response.ok) throw new Error(`HTTP ${response.status}`);
+    const arrayBuffer = await response.arrayBuffer();
+    const buf = Buffer.from(arrayBuffer);
+    const ct = response.headers.get('content-type') || 'image/png';
+    mapCache.set(cacheKey, { buf, ct });
+    res.set('Content-Type', ct);
+    res.set('Cache-Control', 'public, max-age=86400');
+    res.send(buf);
+  } catch (err) {
+    // Fallback: redirect to Esri World Imagery tile
+    const z2 = parseInt(z);
+    const x = Math.floor((parseFloat(lon) + 180) / 360 * Math.pow(2, z2));
+    const latR = parseFloat(lat) * Math.PI / 180;
+    const y = Math.floor((1 - Math.log(Math.tan(latR) + 1 / Math.cos(latR)) / Math.PI) / 2 * Math.pow(2, z2));
+    res.redirect(`https://server.arcgisonline.com/ArcGIS/rest/services/World_Imagery/MapServer/tile/${z2}/${y}/${x}`);
+  }
+});
+
 // ─── Card definitions ──────────────────────────────────────────────────────────
 const CARD_SETS = [
   { id: 'usa',      country: 'USA',        flag: 'us', street: 'Americká'    },
