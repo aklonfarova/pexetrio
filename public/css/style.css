@@ -44,11 +44,11 @@ body {
 }
 
 /* Lobby & waiting & gameover: normal scroll */
+/* Lobby / waiting / gameover: normal scroll */
 #view-lobby,
 #view-waiting,
 #view-gameover {
   min-height: 100vh;
-  display: none;
   flex-direction: column;
   align-items: center;
   justify-content: center;
@@ -60,11 +60,11 @@ body {
 #view-game {
   position: fixed;
   inset: 0;
-  display: none;
   flex-direction: column;
   overflow: hidden;
 }
 
+/* Active state – must come AFTER the ID rules to win specificity */
 .view.active { display: flex; }
 
 /* ═══════════════════════════════════════════════════════════════
